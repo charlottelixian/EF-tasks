@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Wisconsin Card Sorting Test</title>
+    <!-- Include jsPsych core and plugins -->
+    <script src="jspsych.js"></script>
+    <script src="plugins/jspsych-html-keyboard-response.js"></script>
+    <link href="jspsych.css" rel="stylesheet" type="text/css">
+    <style>
+      .card {
+        border: 2px solid black;
+        padding: 10px;
+        margin: 10px;
+        display: inline-block;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body></body>
+  <script>
+    // Define the four reference cards
+    var referenceCards = [
+      { id: "1", color: "red",    shape: "circle",   number: 1 },
+      { id: "2", color: "blue",   shape: "triangle", number: 2 },
+      { id: "3", color: "green",  shape: "square",   number: 3 },
+      { id: "4", color: "yellow", shape: "star",     number: 4 }
+    ];
+    
+    // Define possible features of the stimulus cards – for simplicity, we use the same attributes
+    var stimulusCards = referenceCards.slice();
+
+    // Define the sorting rules (dimensions)
+    var rules = ["color", "shape", "number"];
+    var currentRuleIndex = 0;
+    var currentRule = rules[currentRuleIndex];
+
+    // Create timeline array for jsPsych
+    var timeline = [];
+
+    // Instructions trial
+    var instructions = {
+      type: 'html-keyboard-response',
+      stimulus: `<p>Welcome to the Wisconsin Card Sorting Test.</p>
+                 <p>You will be shown a stimulus card with a color, shape, and number.</p>
+                 <p>Your task is to sort the card by pressing the key corresponding to one of four reference cards.</p>
+                 <p>The reference cards are always:</p>
+                 <div>
+                   <div class="card">1: Red Circle<br>Number: 1</div>
+                   <div class="card">2: Blue Triangle<br>Number: 2</div>
+                   <div class="card">3: Green Square<br>Number: 3</div>
+                   <div class="card">4: Yellow Star<br>Number: 4</div>
+                 </div>
+                 <p>The sorting rule (by color, shape, or number) is not told to you – use the feedback to figure it out.</p>
+                 <p>Press any key to begin.</p>`
+    };
+    timeline.push(instructions);
+
+    // Function to create a trial
+    function generateTrial() {
+      // Randomly pick a stimulus card
+      var trialCard = jsPsych.randomization.sampleWithoutReplacement(stimulusCards, 1)[0];
+
+      // Build the HTML stimulus
+      var stimulus_html = `<p>Sort the following card:</p>
+                           <div class="card">
+                             <p><strong>Color:</strong> ${trialCard.color}</p>
+                             <p><strong>Shape:</strong> ${trialCard.shape}</p>
+                             <p><strong>Number:</strong> ${trialCard.number}</p>
+                           </div>
+                           <p>Press 1, 2, 3, or 4 to choose the corresponding reference card.</p>
+                           <p>(Reference cards: 1 = Red Circle, 2 = Blue Triangle, 3 = Green Square, 4 = Yellow Star)</p>`;
+
+      // Determine the correct response based on the current rule
+      var correct_response = "";
+      if (currentRule === "color") {
+        // Find the reference card whose color matches the trial card
+        correct_response = referenceCards.find(card => card.color === trialCard.color).id;
+      } else if (currentRule === "shape") {
+        correct_response = referenceCards.find(card => card.shape === trialCard.shape).id;
+      } else if (currentRule === "number") {
+        correct_response = referenceCards.find(card => card.number === trialCard.number).id;
+      }
+
+      // Create the trial object
+      var trial = {
+        type: 'html-keyboard-response',
+        stimulus: stimulus_html,
+        choices: ['1', '2', '3', '4'],
+        data: {
+          stimulus_card: trialCard,
+          current_rule: currentRule,
+          correct_response: correct_response
+        },
+        on_finish: function(data) {
+          data.correct = (data.response === data.correct_response);
+        }
+      };
+      return trial;
+    }
+
+    // Function to generate feedback for the previous trial
+    var feedback = {
+      type: 'html-keyboard-response',
+      stimulus: function() {
+        var last_trial = jsPsych.data.getLastTrialData().values()[0];
+        if(last_trial.correct){
+          return "<p>Correct!</p><p>Press any key to continue.</p>";
+        } else {
+          return "<p>Incorrect!</p><p>Press any key to continue.</p>";
+        }
+      }
+    };
+
+    // Total number of trials for this demo
+    var totalTrials = 50;
+    // We'll change the sorting rule after every 10 trials
+    var trialsPerRule = 10;
+    
+    for (var i = 0; i < totalTrials; i++) {
+      // Add a trial
+      timeline.push(generateTrial());
+      // Add feedback
+      timeline.push(feedback);
+
+      // Check for rule change after every trialsPerRule trials
+      if ((i + 1) % trialsPerRule === 0) {
+        // Update rule
+        currentRuleIndex = (currentRuleIndex + 1) % rules.length;
+        currentRule = rules[currentRuleIndex];
+
+        // Insert a message indicating a rule change (the participant is not told the new rule)
+        var rule_change_message = {
+          type: 'html-keyboard-response',
+          stimulus: `<p>The sorting rule has changed!</p>
+                     <p>Remember to use the feedback to deduce the rule.</p>
+                     <p>Press any key to continue.</p>`
+        };
+        timeline.push(rule_change_message);
+      }
+    }
+
+    // Debrief trial
+    var debrief = {
+      type: 'html-keyboard-response',
+      stimulus: '<p>Thank you for participating in the test.</p><p>Press any key to finish.</p>'
+    };
+    timeline.push(debrief);
+
+    // Initialize the experiment
+    jsPsych.init({
+      timeline: timeline,
+      on_finish: function() {
+        jsPsych.data.displayData();
+      }
+    });
+  </script>
+</html>
